@@ -7,13 +7,39 @@ from render_nodes import render, superpose, CA, _spline
 from py2Dmol.viewer import best_view
 
 DPI = 125
-plt.rcParams.update({'savefig.bbox': 'tight'})
+# Matplotlib scales dash patterns by linewidth, so a thick dotted line renders with
+# gaps several times longer and reads as dashed. Disable that: line style must encode
+# backbone provenance only, independent of the linewidth that encodes similarity.
+plt.rcParams.update({'savefig.bbox': 'tight', 'lines.scale_dashes': False})
 
 TM = np.load('tm_all.npy')
 SID = np.load('sid_all.npy')          # pairwise % sequence identity, same order
 order = json.load(open('order_all.json'))
 idx = {n: i for i, n in enumerate(order)}
 arch = pd.read_csv('archetypes.csv').set_index('design')
+_prov = pd.read_csv('provenance_summary.csv')
+BACKBONE = dict(zip(_prov.full_name, _prov.root_backbone_id))
+
+
+def edge_class(u, v):
+    """Is this edge independent evidence, or two sequences on one backbone?
+
+    Muni carries no backbone identifiers, so a Muni-Muni pair is genuinely unknown.
+    A Muni-Anthropic pair cannot share a backbone (separate pipelines), so it counts
+    as different-backbone."""
+    mu_u, mu_v = u.startswith('MUNI_'), v.startswith('MUNI_')
+    if mu_u and mu_v:
+        return 'unknown'
+    if mu_u != mu_v:
+        return 'diff'
+    return 'same' if BACKBONE[u] == BACKBONE[v] else 'diff'
+
+
+# Edge COLOUR encodes backbone provenance; every edge is solid so connectivity stays
+# legible. Chosen to avoid the four node hues. See METHODS_ARCHIVE.md 7c.
+EDGE_COLORS = {'diff': '#2A3340', 'same': '#D81B60', 'unknown': '#00C2C7'}
+EDGE_LABEL = {'diff': 'different backbones', 'same': 'same backbone',
+              'unknown': 'backbone not recorded'}
 mu = pd.read_json('muni.json').set_index('id')
 
 PAL = {'muni': '#C1440E', 'mythos_preview_single': '#0E7C7B',
@@ -165,23 +191,27 @@ def force_layout(G, nodes, min_d, seed=7, iters=1500):
 
 def draw(nodes, pos, EG, title, subtitle, statline, fname,
          min_d=0.118, width_in=17.0, edge_color='#39404B',
-         wmin=0.0, wmax=1.0, lw_base=1.6, lw_gain=6.0, alpha_base=0.42):
+         wmin=0.0, wmax=1.0, lw_base=2.1, lw_gain=6.6, alpha_base=0.58,
+         statline2=None):
     """Draw one panel. Node positions are passed in, so the structural and the
     sequence panel of a set are the same picture with a different edge layer."""
     xs = np.array([pos[n][0] for n in nodes]); ys = np.array([pos[n][1] for n in nodes])
     pad = min_d * 0.62
     spanx = (xs.max() - xs.min()) + 2 * pad
     spany = (ys.max() - ys.min()) + 2 * pad
-    AXF = 0.775
+    AXF = 0.735
     fig = plt.figure(figsize=(width_in, width_in * spany / spanx / AXF))
-    ax = fig.add_axes([0.0, 0.105, 1.0, AXF])
+    ax = fig.add_axes([0.0, 0.150, 1.0, AXF])
 
     for u, v, dd in sorted(EG.edges(data=True), key=lambda e: e[2]['w']):
         a = np.clip((dd['w'] - wmin) / (wmax - wmin + 1e-9), 0, 1)
-        ax.plot(*zip(pos[u], pos[v]), color=edge_color,
+        k = edge_class(u, v)
+        af = {'diff': 0.68, 'same': 0.90, 'unknown': 0.90}[k]
+        ax.plot(*zip(pos[u], pos[v]), color=EDGE_COLORS[k],
                 lw=lw_base + lw_gain * a ** 1.3,
-                alpha=alpha_base + (0.94 - alpha_base) * a ** 1.1,
-                zorder=1 + a, solid_capstyle='round')
+                alpha=af + (0.98 - af) * a ** 1.1,
+                zorder=(1 if k == 'diff' else 2) + a,
+                solid_capstyle='round')
 
     ax.set_xlim(xs.min() - pad, xs.max() + pad)
     ax.set_ylim(ys.min() - pad, ys.max() + pad)
@@ -197,12 +227,24 @@ def draw(nodes, pos, EG, title, subtitle, statline, fname,
     fig.suptitle(title, fontsize=40, weight='bold', y=0.998)
     fig.text(.5, .955, subtitle, ha='center', fontsize=22, color='#3A3A3A')
     if statline:
-        fig.text(.5, .923, statline, ha='center', fontsize=24,
+        fig.text(.5, .928, statline, ha='center', fontsize=24,
                  color=edge_color, weight='bold')
+    if statline2:
+        fig.text(.5, .897, statline2, ha='center', fontsize=19, color='#4A4A4A')
     h = [plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=c,
-                    markersize=26, label=LB[k]) for k, c in PAL.items()]
-    ax.legend(handles=h, loc='lower center', bbox_to_anchor=(.5, -.055), ncol=4,
-              frameon=False, fontsize=23, handletextpad=.35, columnspacing=2.0)
+                    markersize=22, label=LB[k]) for k, c in PAL.items()]
+    leg1 = ax.legend(handles=h, loc='lower center', bbox_to_anchor=(.5, -.055), ncol=4,
+                     frameon=False, fontsize=20, handletextpad=.3, columnspacing=1.3)
+    ax.add_artist(leg1)
+    counts = {k: 0 for k in EDGE_COLORS}
+    for u, v in EG.edges():
+        counts[edge_class(u, v)] += 1
+    h2 = [plt.Line2D([0], [0], color=EDGE_COLORS[k], lw=6.0,
+                     label=f'{EDGE_LABEL[k]}  ({counts[k]})')
+          for k in ('diff', 'same', 'unknown') if counts[k]]
+    ax.legend(handles=h2, loc='lower center', bbox_to_anchor=(.5, -.122),
+              ncol=len(h2), frameon=False, fontsize=19, handlelength=3.0,
+              handletextpad=.5, columnspacing=2.2)
     plt.savefig(fname, dpi=DPI, facecolor='white')
     plt.close()
     print(f'{fname}: {len(nodes)} nodes, {EG.number_of_edges()} edges')
@@ -231,6 +273,10 @@ if __name__ == '__main__':
 
         n_s, n_q = SG.number_of_edges(), QG.number_of_edges()
         both = sum(1 for u, v in SG.edges() if QG.has_edge(u, v))
+        sib_s = sum(1 for u, v in SG.edges() if edge_class(u, v) == 'same')
+        indep_s = n_s - sib_s
+        indep_both = sum(1 for u, v in SG.edges()
+                         if QG.has_edge(u, v) and edge_class(u, v) != 'same')
 
         draw(nodes, pos, SG,
              f'Fold space of TREM2 {S["what"]}',
@@ -238,7 +284,9 @@ if __name__ == '__main__':
              f'{S["noun"]}',
              f'{n_s} pairs share a fold  (TM-score ≥ {TM_THR:.2f})',
              f'fig_network_{S["key"]}{TAG}_structure.png',
-             min_d=min_d, edge_color='#2B3A4A', wmin=TM_THR, wmax=1.0)
+             min_d=min_d, edge_color='#2B3A4A', wmin=TM_THR, wmax=1.0,
+             statline2=f'{indep_s} join independent designs; {sib_s} join two sequences '
+                       f'built on one backbone')
 
         draw(nodes, pos, QG,
              f'Sequence space of the same TREM2 {S["what"]}',
@@ -248,4 +296,6 @@ if __name__ == '__main__':
              f'(identity ≥ {ID_THR:.0f}%)',
              f'fig_network_{S["key"]}{TAG}_sequence.png',
              min_d=min_d, edge_color='#B23A22', wmin=ID_THR, wmax=100.0,
-             lw_base=1.1, lw_gain=5.0, alpha_base=0.30)
+             lw_base=2.1, lw_gain=6.6, alpha_base=0.58,
+             statline2=f'and {both - indep_both} of those {both} are sibling sequences on a '
+                       f'shared backbone — only {indep_both} of {indep_s} independent pairs')

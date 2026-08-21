@@ -201,8 +201,77 @@ choices. They are not reproducible from this repository and should be deleted.
 
 ---
 
+## 7c. Backbone non-independence — the analysis treats every design as one node
+
+**The nodes in these networks are not statistically independent, and this analysis does not
+correct for it.** Every figure and statistic in this repository counts one node per delivered
+*sequence*. Claude's pipeline generates a backbone first and then designs one or more
+sequences onto it, so two designs can be different sequences threaded onto the same fold.
+Shanehsazzadeh et al. flag this directly ("we count designs per sequence, although sequence
+variants of one backbone are not independent"); release-wide they report 809 distinct
+backbones behind 1,315 tested designs, and 200/809 (24.7 %) binders when counting one
+sequence per backbone.
+
+`provenance_summary.csv → root_backbone_id` records the backbone of each design.
+
+**Scale on TREM2.** The 90 designs come from **61 distinct backbones**. 29 backbones
+contributed exactly 2 designs each (never more), so **58 of 90 designs have a sibling**.
+Siblings are near-duplicates in both dimensions:
+
+| Within the 29 sibling pairs | median | range |
+|---|---|---|
+| TM-score | 0.98 | 0.68 – 0.99 (28/29 ≥ 0.80) |
+| Sequence identity | 68 % | 49 – 87 % (29/29 ≥ 40 %) |
+| Binder length | identical in 29/29 pairs | |
+
+Both members bind in 26 of 29 pairs, against 18.6 expected if the two were independent
+draws at the 80 % TREM2 hit rate. Siblings differ mainly in how much in-silico optimization
+they received (e.g. `predict-and-redesign x5` vs `x3` on the same backbone).
+
+**Effect on the plotted networks.** Sibling pairs are over-represented in every edge set, and
+they dominate the overlap statistic:
+
+| Signal (binder panel) | total | sibling | share |
+|---|---|---|---|
+| Structural edges (TM ≥ 0.80) | 150 | 25 | 17 % |
+| Sequence edges (identity ≥ 40 %) | 78 | 26 | 33 % |
+| **Both** (the headline "38") | 38 | **25** | **66 %** |
+
+16 of the 20 highest-TM binder pairs are siblings.
+
+**The headline conclusion survives de-duplication, and strengthens:**
+
+| Fold-sharing pairs that are also sequence-alike | |
+|---|---|
+| As published (81 nodes) | 38/150 = **25 %** |
+| Excluding sibling pairs | 13/125 = **10 %** |
+| One design per backbone (55 binder nodes) | 10/54 = **19 %** |
+
+Among genuinely independent backbones only about 1 in 10 fold-sharing pairs shares detectable
+sequence similarity, so the structure-without-sequence convergence is not a duplicate artifact
+— duplicates were masking its strength. Likewise 125 of the 150 structural edges join designs
+from different backbones, so the fold clustering is mostly real.
+
+**Suggested caption wording:** *"The 90 Anthropic designs derive from 61 distinct backbones;
+17 % of structural edges join sibling sequences of a shared backbone. Restricting to the 55
+independent backbones, 19 % of fold-sharing pairs remain sequence-alike (10 % when sibling
+pairs are simply excluded)."*
+
+**Asymmetry.** The Muni collection carries no backbone identifiers, so the same de-duplication
+cannot be applied to it. Its 10 designs have their own redundancy — mean pairwise identity
+31.7 %, one pair at 95.5 % — arising from related MCTS search configurations rather than a
+shared backbone (per the muni autoresearch report). Any de-duplicated comparison is therefore
+corrected on the Anthropic side only.
+
+Per-pair data: `backbone_families.csv` (29 pairs with TM, identity, length, outcome).
+
+---
+
 ## 8. Known limitations to carry into any caption
 
+0. **Nodes are sequences, not backbones** — see §7c. 58 of the 90 Anthropic designs share a
+   backbone with another design, 17 % of structural edges and 66 % of the structure-plus-
+   sequence overlap are sibling pairs, and no statistic here is corrected for this.
 1. **Cross-group edges are not plotted.** Splitting binders from non-binders drops
    47 of 207 structural edges (23 %) and 27 of 110 sequence edges (25 %). 11 of 19
    non-binders have ≥1 fold link to a binder; with cross edges included, **no non-binder is
@@ -214,5 +283,13 @@ choices. They are not reproducible from this repository and should be deleted.
    "non-binder" spans true non-binders and expression failures.
 4. **Muni is a curated set** (9/10 Strong) versus a complete unfiltered Anthropic campaign.
    Hit rates are not comparable across collections; only sequence/structure comparisons are.
-5. Muni's Boltz2 co-folds come from Muni's pipeline at unknown version/settings; Anthropic's
-   are seed-best-of-five by `ipsae_min`. Same predictor family, not an identical protocol.
+5. Muni's Boltz2 co-folds come from Muni's own autoresearch pipeline (Boltz-2, ranked by
+   default ipSAE); Anthropic's are seed-best-of-five by `ipSAE_min`. Same predictor, but not
+   an identical seed-selection protocol.
+6. **Affinities are not comparable across the two collections.** Anthropic's TREM2 plate had
+   dissociation too slow to measure, so kinetic and steady-state fits disagreed by >30-fold
+   and `kd_nM_final` values are steady-state figures or bounds; six TREM2 binders sit at the
+   ~100 pM assay floor. Muni's values are Adaptyv BLI replicate means. Cite the same-plate
+   comparison in Shanehsazzadeh et al. instead: the tightest Muni design was re-synthesised
+   as a control on Anthropic's TREM2 plate and bound below 100 pM, as did the best design of
+   each of the three Claude campaigns.

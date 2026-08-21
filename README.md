@@ -2,6 +2,7 @@
 This repository compares AI agents' designs of TREM2 protein binders that were recently shared by [Muni](https://muni.bio/research/closing-the-autoresearch-loop) and [Anthropic](https://www.anthropic.com/research/Claude-accelerates-protein-design).
 All artifacts except those in `/data` are from Claude Opus 5.
 The code may not run locally, and external software dependencies are not provided.
+[`METHODS_ARCHIVE.md`](METHODS_ARCHIVE.md) provides and overview of the analyses and limitations.
 
 ## Workflow overview
 ```
@@ -43,9 +44,9 @@ The `/data` directory contains inputs from third parties.
 ### Anthropic
 - `design_summary.csv` from [Hugging Face](https://huggingface.co/datasets/Anthropic/claude-protein-binder-design/blob/main/data/tables/design_summary.csv)
 - `designs.fasta` from [Hugging Face](https://huggingface.co/datasets/Anthropic/claude-protein-binder-design/blob/main/data/designs/designs.fasta)
-- `TREM2.zip`zipped from [Hugging Face](https://huggingface.co/datasets/Anthropic/claude-protein-binder-design/tree/main/data/designs/TREM2)
+- `TREM2.zip` zipped from [Hugging Face](https://huggingface.co/datasets/Anthropic/claude-protein-binder-design/tree/main/data/designs/TREM2)
 
-Other documentation files were provided to Claude as context.
+Additional documentation files were provided to Claude as context.
 This uses data release v1.0.
 
 [License](https://huggingface.co/datasets/Anthropic/claude-protein-binder-design/blob/main/data/LICENSE.md):
