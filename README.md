@@ -34,9 +34,11 @@ structures ──► superpose onto global medoid ──► py2Dmol best_view (O
 ## Third-party resources
 The `/data` directory contains inputs from third parties.
 
-### muni
+### muni / Adaptyv
 - `proteinbase_collection_muni-proteina-complex-auto-research.csv` from [Proteinbase](https://proteinbase.com/collections/muni-proteina-complex-auto-research)
 - `muni_files.zip` files downloaded from the URLs in the above csv
+- `proteinbase_collection_adaptyv-x-muni-hackathon-ai-agents-vs-humans.csv` from [Proteinbase](https://proteinbase.com/collections/adaptyv-x-muni-hackathon-ai-agents-vs-humans)
+- `hackathon_boltz2.zip` files downloaded from the URLs in the above csv, only the Boltz2 structure .cif files.
 
 [License](https://proteinbase.com/download):
 > This work used Proteinbase by Adaptyv Bio under ODC-BY license

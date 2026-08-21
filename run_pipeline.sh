@@ -4,6 +4,9 @@
 # Run from a directory containing the five third-party inputs:
 #   designs.fasta  design_summary.csv  TREM2.zip  muni_files.zip
 #   proteinbase_collection_muni-proteina-complex-auto-research.csv
+# plus, for the three-collection extension (section 9):
+#   proteinbase_collection_adaptyv-x-muni-hackathon-ai-agents-vs-humans.csv
+#   hackathon_boltz2.zip
 # Set UP=<dir> if they are not in the current directory.
 set -euo pipefail
 
@@ -84,3 +87,32 @@ python3 fig_network.py 0.80 40
 
 # alternative threshold rendered for comparison
 python3 fig_network.py 0.75 40
+
+# ------------------------------------------- 6. three-collection extension (METHODS 9)
+# extra input: the Adaptyv x MUNI hackathon collection (ODC-BY) + its 100 Boltz2 CIFs
+unzip -q -o "$UP/hackathon_boltz2.zip" -d hack_cifs        # flat, <id>__boltz2_*.cif
+python3 build_dataset_hack.py --stage seqs
+#   -> all_hack.fasta (200), all_binder_pdb_hack/ (200), epitopes_hack.json
+#      epitope residues remapped to 156-numbering; His-tag contacts dropped
+
+for O in "aln.tsv|query,target,alntmscore,lddt,fident|fs_hack"          "sup.tsv|query,target,alntmscore,qstart,qend,tstart,tend,cigar|fs_hack_sup"; do
+  IFS='|' read -r OUT FMT DIR <<< "$O"
+  foldseek easy-search all_binder_pdb_hack all_binder_pdb_hack "$DIR/$OUT" "$DIR/tmp" \
+    --alignment-type 1 --exhaustive-search 1 -e 10000 --max-seqs 4000 \
+    --format-output "$FMT"
+done                                    # expect 40000 rows each (200x200)
+
+python3 pairwise_hack.py                # -> sid_hack.npy  (19,900 pairs, 8 processes)
+python3 build_dataset_hack.py --stage matrices   # -> order_hack.json, tm_hack.npy
+
+# novelty gate emulation: MMseqs2 vs the hackathon corpus, per Anthropic's prompt
+mmseqs easy-search q_anth.fasta db_hack.fasta mm_nov/anth.m8 mm_nov/tmp_anth \
+  -s 7.5 --max-seqs 500 -e 10000 \
+  --format-output "query,target,fident,alnlen,qcov,tcov,evalue,bits"
+mmseqs easy-search q_muni.fasta db_hack.fasta mm_nov/muni.m8 mm_nov/tmp_muni \
+  -s 7.5 --max-seqs 500 -e 10000 \
+  --format-output "query,target,fident,alnlen,qcov,tcov,evalue,bits"
+
+python3 fig_network_hack.py 0.80 40     # 200-node structure + sequence networks
+python3 fig_hack_analyses.py            # novelty audit + three-collection epitope map
+python3 fig_heatmap_hack.py             # TM / identity heatmaps, two orderings

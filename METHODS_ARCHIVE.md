@@ -1,7 +1,15 @@
 # TREM2 binder comparison — archival methods record
 
-Everything needed to reproduce `fig_network_{binders,nonbinders}_tm80_{structure,sequence}.png`.
+Everything needed to reproduce the figures in this repository.
 Every free parameter is listed with the value used, why, and what else was tried.
+
+The record covers two analyses that share a pipeline:
+
+* **Two-collection** (100 designs: Anthropic + Muni) — sections 0–8.
+  Artifacts unsuffixed: `tm_all.npy`, `sid_all.npy`, `fig_network_{binders,nonbinders}_tm80_*`.
+* **Three-collection** (200 designs: + the Adaptyv × MUNI hackathon) — section 9.
+  Artifacts suffixed `_hack`, so nothing in the two-collection analysis is overwritten
+  and its figures stay byte-reproducible.
 
 ---
 
@@ -125,8 +133,11 @@ End-to-end check: 354 True release-wide, 262 Mythos Preview / 92 Opus 4.8 — ex
 README's published figures. TREM2 subset: 72 True, 18 False, 0 null.
 
 **Muni: `binding_strength == "Strong"`** from the collection CSV — Muni's own field
-(9 Strong, 1 null). Each collection is labelled by its own vendor's call; no cross-collection
-rubric was imposed.
+(9 Strong, 1 null). The single null is `brisk-crane-granite`, which the CSV records as
+`expressed: False` / `binding: False` in both replicates: a measured expression failure, and
+therefore a non-binder on the same basis as the 7 Anthropic designs that failed to express at
+Adaptyv and carry `binder_final = False`. Each collection is labelled by its own vendor's
+call; no cross-collection rubric was imposed.
 
 ---
 
@@ -280,16 +291,169 @@ Per-pair data: `backbone_families.csv` (29 pairs with TM, identity, length, outc
 3. **`binder_final` is an adjudicated rubric, not a raw measurement** (`DATA_NOTES` §17).
    Within the 18 Anthropic non-binders: 7 did not express at Adaptyv, 5 were called binders
    by Twist and overruled. This is Anthropic's encoding, adopted unchanged — but it means
-   "non-binder" spans true non-binders and expression failures.
+   "non-binder" spans designs that were expressed and failed to bind, and designs that
+   failed to express. **The two collections are consistent on this point**: Muni's single
+   non-binder, `brisk-crane-granite`, records `expressed: False` and `binding: False` in
+   both replicates (its null `binding_strength` reflects that there is no affinity to
+   report, not that it went untested), so expression failure is a measured negative outcome
+   under both vendors' rubrics and is counted the same way on both sides.
 4. **Muni is a curated set** (9/10 Strong) versus a complete unfiltered Anthropic campaign.
    Hit rates are not comparable across collections; only sequence/structure comparisons are.
 5. Muni's Boltz2 co-folds come from Muni's own autoresearch pipeline (Boltz-2, ranked by
    default ipSAE); Anthropic's are seed-best-of-five by `ipSAE_min`. Same predictor, but not
    an identical seed-selection protocol.
-6. **Affinities are not comparable across the two collections.** Anthropic's TREM2 plate had
+6. **Hackathon affinities** are Adaptyv BLI/SPR, directly comparable to Muni and
+   *not* to Anthropic (see item 7).  The hackathon is in-silico pre-filtered
+   (top 100 of 141 by Boltz-2 ipSAE), a third selection regime; hit rates are not
+   comparable across any of the three collections.
+7. **Affinities are not comparable across the Anthropic/Muni collections.** Anthropic's TREM2 plate had
    dissociation too slow to measure, so kinetic and steady-state fits disagreed by >30-fold
    and `kd_nM_final` values are steady-state figures or bounds; six TREM2 binders sit at the
    ~100 pM assay floor. Muni's values are Adaptyv BLI replicate means. Cite the same-plate
    comparison in Shanehsazzadeh et al. instead: the tightest Muni design was re-synthesised
    as a control on Anthropic's TREM2 plate and bound below 100 pM, as did the best design of
    each of the three Claude campaigns.
+
+---
+
+## 9. Three-collection extension — the Adaptyv × MUNI hackathon
+
+### 9.1 Input
+
+`proteinbase_collection_adaptyv-x-muni-hackathon-ai-agents-vs-humans.csv`
+(ProteinBase download endpoint; **ODC-BY**, attribution required) plus
+`hackathon_boltz2.zip`, the 100 `boltz2_structure_prediction` CIFs fetched with
+`download_muni.sh`.  Same six-column schema as the Muni collection and the same UTF-8
+BOM, so the same `encoding='utf-8-sig'` applies.
+
+100 designs, 141 submitted of which the top 100 by Boltz-2 ipSAE went to the lab — so
+this collection is **in-silico pre-filtered**, a third and distinct selection regime
+alongside Muni's curated 10-of-13,916 and Anthropic's unfiltered ranks 1–30.
+
+Verified on receipt: all 100 CIFs parse, exactly 2 chains each, binder is chain **B**
+in all 100, and every binder chain equals its CSV sequence exactly.  No design_id
+collides with the Muni collection.
+
+### 9.2 Binder definition
+
+`binding_strength ∈ {Strong, Medium, Weak}` = 37 binders, which reproduces the
+collection's published headline.  This agrees with the `binding` boolean on **100 of
+100** designs, so the two definitions are interchangeable here.  `binding_strength` is
+retained as a four-level column for downstream use.  Expression rate 89/100.
+
+Design classes are heterogeneous by intent: Miniprotein 79, Other 15, Nanobody 4,
+Peptide 1, scFv 1; lengths 12–245 aa.  All classes are retained.  Note Anthropic's
+prompt explicitly places single-domain antibody and VHH formats out of scope, so the
+antibody scaffolds are hackathon-only **by construction** and are not evidence about
+tool or format choice.
+
+### 9.3 TREM2 construct heterogeneity — a mandatory correction
+
+The hackathon used **two different TREM2 constructs**, both numbered from 1:
+
+| construct | n | composition |
+|---|---|---|
+| 126-mer | 92 | `TG` + TREM2(1–115) + `GTKHHHHHH` (linker + His6) |
+| 156-mer | 8 | TREM2, byte-identical to Muni's target |
+
+Residue *N* in 126-numbering is residue *N−2* in 156-numbering (consistent at 115 of
+116 aligned positions; the 9 exceptions are the purification tag).  Epitope residues
+are therefore mapped onto 156-numbering with a −2 shift for the 92, and contacts at
+126-numbering ≥ 118 are **dropped** as contacts to the tag rather than the antigen
+(9 contacts across 4 designs).  Every mapping is verified against the residue identity
+in the structure; after the fix, **0 mismatches**.
+
+**This correction is load-bearing.** Pooling raw numbers puts the hackathon consensus
+at residues 56/53/54/58, two off from the 51/53/54/56/57/71 hotspots seen in the other
+collections, which reads as a *different* epitope.  After correction the top residues
+are 54/53/56/51/71/52/26 and hits in the known hotspot set rise from 410 to 628 (+53%).
+
+Across all three collections the TREM2 construct is now four-way heterogeneous
+(109 / 110 / 126 / 156).  Structural comparison is unaffected — only the binder chain
+is used, matched by sequence.
+
+### 9.4 Predictor provenance — a three-way asymmetry
+
+| collection | co-folded structures |
+|---|---|
+| Hackathon | Adaptyv ProteinBase Boltz-2 pipeline |
+| Muni | Adaptyv ProteinBase Boltz-2 pipeline |
+| Anthropic | Anthropic's own pipeline, seed-best-of-five by `ipSAE_min` |
+
+Hackathon↔Muni is therefore a like-for-like comparison; any Anthropic-versus-others
+structural difference is **partly confounded with predictor protocol** and must be
+reported as such.
+
+### 9.5 What was rerun, and what was not
+
+Rerun on 200 designs: binder-chain extraction, `all_hack.fasta`, Foldseek all-vs-all
+(40,000 rows) and the CIGAR run, Biopython pairwise (19,900 pairs, 8-way multiprocessed
+in `pairwise_hack.py`), `tm_hack.npy`, `sid_hack.npy`, epitopes, node bitmaps, figures.
+Settings are identical to sections 3 and 4 in every respect.
+
+Not rerun: Anthropic provenance and backbone-family analysis, wet-lab analysis, and the
+four two-collection network figures.
+
+**Cross-check:** the 100×100 submatrices of the new matrices reproduce the verified
+originals — TM exactly (max difference 0.0), sequence identity in 4,949 of 4,950 pairs.
+The single exception, `MUNI_deep-gecko-maple` / `MUNI_noble-boar-reed`, has exactly
+**two co-optimal alignments** at score 48.0 giving 22.56% or 25.56%; `align()[0]`
+returns a different representative.  Both values are far below the 40% edge threshold,
+so no figure or statistic changes.  Aligner settings are identical — verified by
+re-running the original configuration, which now also returns 25.56%.
+
+### 9.6 Novelty audit (`fig_novelty_audit_hack.png`)
+
+Anthropic's prompt lists the hackathon collection as **reference #11** and stages the
+ProteinBase collections as the known-binder corpus ("02 ProteinBase").  Its novelty
+gate reads:
+
+> REJECT at >60% identity over >50% coverage to UniRef90 or the binder corpus, OR at
+> ≥30% gapped local identity over ≥40 aligned residues OR TM-score ≥0.5 **to any target
+> or control chain**
+
+The TM-score criterion is scoped to target and control chains — its stated purpose is
+catching target-mimic protomers.  **The known-binder corpus was tested on sequence
+only.**  The gate is emulated with MMseqs2 (`-s 7.5`, `fident`/`qcov`/`tcov`).
+
+| | Anthropic (90) | Muni (10) |
+|---|---|---|
+| TM ≥ 0.50 to some hackathon design | 90 (100%) | 10 (100%) |
+| TM ≥ 0.80 | **51 (57%)** | 4 (40%) |
+| TM ≥ 0.90 | 18 | 1 |
+| max sequence identity to corpus | 58.3% | 41.7% |
+| rejected by the >60%/>50% gate | **0** | 0 |
+
+The Muni panel is **descriptive only**: Muni published no equivalent novelty rule, so it
+is the same measurement without a stated criterion to audit against.
+
+**Do not read this as imitation of what worked.**  Anthropic's median best TM to a
+hackathon *binder* is 0.790 versus 0.797 to a *non-binder* (paired Wilcoxon p = 0.061,
+if anything the wrong direction), and the single closest match (TM 0.968) is to an
+RFpeptides design with no binding call.  The defensible statement is a shared fold
+vocabulary, not selective copying.  Timing is consistent with exposure but does not
+establish it — ULID asset timestamps place all hackathon assets before all Muni ones,
+and all three campaigns targeted the same epitope on the same protein with overlapping
+tools, so convergence and derivation are not separable from this data.
+
+### 9.7 Three-collection figures
+
+`fig_network_hack_tm80_{structure,sequence}.png` — 200 nodes, node hue = campaign,
+`min_d` 0.072, `width_in` 20.0; layout and edge semantics otherwise as section 7.
+**Edge-colour balance is inverted here:** only Anthropic publishes `root_backbone_id`,
+so 432 of 608 structural edges fall in the "backbone not recorded" class.  That class is
+therefore drawn recessive (alpha 0.42, 0.72× width, light cyan) so the two informative
+classes stay legible — a presentation change only; class membership is unchanged.
+
+`fig_heatmap_hack_{bycollection,clustered}.png` — TM and identity matrices side by side
+at matched ordering.  `_bycollection` blocks by campaign with UPGMA within each block;
+`_clustered` uses one global UPGMA on TM with campaign in the side bar only.  The 5
+antibody-scaffold designs are outlined in pink: they form a perfectly isolated clique
+(all 10 pairs TM ≥ 0.80, mean 0.918) with **max TM 0.578 to any of the other 195**.
+
+`fig_epitope_hack.png` — hackathon and Anthropic share an identical top-8 contacted
+residue set (26, 51, 52, 53, 54, 56, 57, 71).  Median cross-campaign epitope overlap
+(Hackathon–Muni 0.55, Muni–Anthropic 0.50, Hackathon–Anthropic 0.47) meets or exceeds
+each collection's internal overlap (Hackathon 0.52, Anthropic 0.46).
+
+---
