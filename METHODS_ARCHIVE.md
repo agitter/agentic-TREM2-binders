@@ -11,6 +11,8 @@ The record covers two analyses that share a pipeline:
   Artifacts suffixed `_hack`, so nothing in the two-collection analysis is overwritten
   and its figures stay byte-reproducible.
 
+---
+
 ## 0. Environment
 
 | Component | Version / build |
