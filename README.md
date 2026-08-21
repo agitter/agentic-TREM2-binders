@@ -2,7 +2,7 @@
 This repository compares AI agents' designs of TREM2 protein binders that were recently shared by [Muni](https://muni.bio/research/closing-the-autoresearch-loop) and [Anthropic](https://www.anthropic.com/research/Claude-accelerates-protein-design).
 All artifacts except those in `/data` are from Claude Opus 5.
 The code may not run locally, and external software dependencies are not provided.
-[`METHODS_ARCHIVE.md`](METHODS_ARCHIVE.md) provides and overview of the analyses and limitations.
+[`METHODS_ARCHIVE.md`](METHODS_ARCHIVE.md) provides an overview of the analyses, limitations, and software Claude used.
 
 ## Workflow overview
 ```
